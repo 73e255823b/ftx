@@ -3,40 +3,20 @@ import os
 import time
 import statistics
 from multiprocessing import Process, Manager
-from threading import Thread, Lock
 
 from flask import Flask
 from flask import request
 
 from ftxwebsocket.client import FtxWebsocketClient
-from ftxrest.client import FtxClient
 
 
 class TradeUpdateStreamer:
 
     def __init__(self, market, latest_trades_by_market):
         self.market = market
-        self.market_file_name = f"{self.market.replace('/', '-')}.txt"
-        self.last_printed_trade = None
+        self.last_stored_trade = None
         self.latest_trades_by_market = latest_trades_by_market
         self.ws_trades = []
-        self.print_lock = Lock()
-        self.rest_client = FtxClient(
-            api_key="Doesnt matter, just using public APIs",
-            api_secret="Doesnt matter, just using public APIs",
-        )
-
-        if os.path.exists(self.market_file_name):
-            os.remove(self.market_file_name)
-
-    def _fetch_missing_trades_when_appropriate(self):
-        last_trade = self._get_last_ws_trade()
-
-        with self.print_lock:
-            while not self._get_last_ws_trade() or self._get_last_ws_trade() == last_trade:
-                time.sleep(.1)
-
-            self._fetch_missing_trades()
 
     def _get_ws_trades(self, ws_client):
         trade_lists = ws_client.get_trades(self.market)
@@ -59,45 +39,26 @@ class TradeUpdateStreamer:
         sort_trade_key = lambda trade: (self._get_trade_time(trade), int(trade["id"]))
         return sorted(trades, key=sort_trade_key)
 
-    def _fetch_missing_trades(self):
-        # Subtract one to account for upward timestamp rounding due to fractional seconds
-        start_time = int(self._get_trade_time(self.last_printed_trade).timestamp()) - 1 if self.last_printed_trade else None
-        end_time = int(time.time())
-        trades_since_last = self._sort_trades(self.rest_client.get_trades(market=self.market, start_time=start_time, end_time=end_time))
-        self._print_new_trades(trades_since_last)
-
-    def _print_new_trades(self, trades):
+    def _store_new_trades(self, trades):
         for trade in trades:
             if (
-                self.last_printed_trade is None or
+                self.last_stored_trade is None or
                 (self._get_trade_time(trade), int(trade["id"])) >
-                (self._get_trade_time(self.last_printed_trade), int(self.last_printed_trade["id"]))
+                (self._get_trade_time(self.last_stored_trade), int(self.last_stored_trade["id"]))
             ):
                 self.latest_trades_by_market[self.market] = trade
-                self.last_printed_trade = trade
-                # Write the latest trade to a file for testing
-                with open(self.market_file_name, "a") as f:
-                    f.write(f'{trade["time"]} {trade["id"]}\n')
+                self.last_stored_trade = trade
 
     def _new_ws_client(self):
-        return FtxWebsocketClient(on_disconnect=self._fetch_missing_trades_when_appropriate)
+        return FtxWebsocketClient()
 
     def start(self):
-        ws_client = self._new_ws_client()
+        ws_client = FtxWebsocketClient()
         while True:
             if ws_client.lost_connection:
-                ws_client = self._new_ws_client()
+                ws_client = FtxWebsocketClient()
             self.ws_trades = self._sort_trades(self._get_ws_trades(ws_client))
-
-            acquired_print_lock = False
-            try:
-                if self.print_lock.acquire(timeout=1):
-                    acquired_print_lock = True
-                    self._print_new_trades(self.ws_trades)
-            finally:
-                if acquired_print_lock:
-                    self.print_lock.release()
-
+            self._store_new_trades(self.ws_trades)
             time.sleep(.1)
 
 
@@ -130,6 +91,7 @@ def get_weighted_index_price(latest_trades_by_market, markets, weights):
     #     "median_price": median_price,
     #     "min_price_for_index_average": min_price_for_index_average,
     #     "max_price_for_index_average": max_price_for_index_average,
+    #     "times": [latest_trades_by_market[market]["time"] for market in markets],
     # }
 
 
@@ -182,7 +144,7 @@ if __name__ == "__main__":
         while True:
             trades_by_market_snapshot = dict(latest_trades_by_market)
             if not set(markets) <= trades_by_market_snapshot.keys():
-                # NB: If a request arrives shortly after server start, the
+                # If a request arrives shortly after server start, the
                 # server may not have yet fetched data for the specified
                 # markets. Accordingly, we await such data; an alternative
                 # would be to fail the request, but this seems friendlier
