@@ -1,13 +1,5 @@
-# FTX Sample Code
-
-[FTX](https://ftx.com/) is a cryptocurrency derivatives exchange.
-
-You can find the REST API docs [here](https://ftx1.docs.apiary.io), websocket API docs [here](https://ftxwebsocket.docs.apiary.io), and FIX docs [here](https://docs.ftx.com/#fix-api).
-
-You can create API keys on your [profile page](https://ftx.com/profile).
-
-FTX is integrated with CCXT here:
-- https://github.com/ccxt/ccxt/blob/master/js/ftx.js
-- https://github.com/ccxt/ccxt/blob/master/python/ccxt/ftx.py
-- https://github.com/ccxt/ccxt/blob/master/python/ccxt/async_support/ftx.py
-- https://github.com/ccxt/ccxt/blob/master/php/ftx.php
+1. Run ``python serve_index.py markets.txt``.
+2. Run ``python request.py`` to request the latest index price.
+3. Modify ``request.py`` to request index prices for different subsets of markets in ``markets.txt``.
+4. Modify ``markets.txt`` to add new markets and repeat steps 1-3.
+5. Run ``python request_test.py`` to test API happy paths and request validation logic.
