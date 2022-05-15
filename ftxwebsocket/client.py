@@ -191,10 +191,8 @@ class FtxWebsocketClient(WebsocketManager):
         super()._on_close(ws)
         if self._on_disconnect:
             self._on_disconnect()
-        # self._reconnect(ws)
 
     def _on_error(self, ws, error):
         super()._on_error(ws, error)
         if self._on_disconnect:
             self._on_disconnect()
-        # self._reconnect(ws)

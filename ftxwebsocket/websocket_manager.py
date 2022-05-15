@@ -65,7 +65,6 @@ class WebsocketManager:
             raise Exception(f'Unexpected error while running websocket: {e}')
         finally:
             self.lost_connection = True
-            # self._reconnect(ws)
 
     def _reconnect(self, ws):
         assert ws is not None, '_reconnect should only be called with an existing ws'
@@ -85,11 +84,9 @@ class WebsocketManager:
 
     def _on_close(self, ws):
         self.lost_connection = True
-        # self._reconnect(ws)
 
     def _on_error(self, ws, error):
         self.lost_connection = True
-        # self._reconnect(ws)
 
     def reconnect(self) -> None:
         if self.ws is not None:
