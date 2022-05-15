@@ -58,7 +58,6 @@ class WebsocketManager:
         return wrapped_f
 
     def _run_websocket(self, ws):
-        # exc = None
         try:
             ws.run_forever(ping_timeout=2, ping_interval=5)
         except Exception as e:
