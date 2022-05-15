@@ -25,7 +25,7 @@ def _sort_trades(trades):
     return sorted(trades, key=sort_trade_key)
 
 
-with open("trades.txt", "r") as f:
+with open(f"{MARKET.replace('/', '-')}.txt", "r") as f:
     lines = f.readlines()
 
 trades_from_file = []
