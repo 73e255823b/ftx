@@ -112,7 +112,6 @@ if __name__ == "__main__":
 
     @app.route("/index")
     def index():
-        # if "markets" not in request.args or "weights" not in request.args:
         markets = request.args.get("markets")
         weights = request.args.get("weights")
         if not markets or not weights:
