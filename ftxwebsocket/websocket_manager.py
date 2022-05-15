@@ -11,6 +11,7 @@ class WebsocketManager:
     def __init__(self):
         self.connect_lock = Lock()
         self.ws = None
+        self.lost_connection = False
 
     def _get_url(self):
         raise NotImplementedError()
@@ -58,11 +59,11 @@ class WebsocketManager:
 
     def _run_websocket(self, ws):
         try:
-            ws.run_forever()
+            ws.run_forever(ping_timeout=2, ping_interval=5)
         except Exception as e:
             raise Exception(f'Unexpected error while running websocket: {e}')
         finally:
-            self._reconnect(ws)
+            self.lost_connection = True
 
     def _reconnect(self, ws):
         assert ws is not None, '_reconnect should only be called with an existing ws'
@@ -81,10 +82,10 @@ class WebsocketManager:
                     return
 
     def _on_close(self, ws):
-        self._reconnect(ws)
+        self.lost_connection = True
 
     def _on_error(self, ws, error):
-        self._reconnect(ws)
+        self.lost_connection = True
 
     def reconnect(self) -> None:
         if self.ws is not None:

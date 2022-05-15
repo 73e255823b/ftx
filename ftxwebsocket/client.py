@@ -7,20 +7,21 @@ from itertools import zip_longest
 from typing import DefaultDict, Deque, List, Dict, Tuple, Optional
 from gevent.event import Event
 
-from websocket.websocket_manager import WebsocketManager
+from ftxwebsocket.websocket_manager import WebsocketManager
 
 
 class FtxWebsocketClient(WebsocketManager):
     _ENDPOINT = 'wss://ftx.com/ws/'
 
-    def __init__(self) -> None:
+    def __init__(self, on_disconnect: callable = None) -> None:
         super().__init__()
         self._trades: DefaultDict[str, Deque] = defaultdict(lambda: deque([], maxlen=10000))
         self._fills: Deque = deque([], maxlen=10000)
-        self._api_key = ''  # TODO: Place your API key here
-        self._api_secret = ''  # TODO: Place your API secret here
+        self._api_key = 'Doesnt matter, just using public APIs'  # TODO: Place your API key here
+        self._api_secret = 'Doesnt matter, just using public APIs'  # TODO: Place your API secret here
         self._orderbook_update_events: DefaultDict[str, Event] = defaultdict(Event)
         self._reset_data()
+        self._on_disconnect = on_disconnect
 
     def _on_open(self, ws):
         self._reset_data()
@@ -81,7 +82,7 @@ class FtxWebsocketClient(WebsocketManager):
             self._subscribe(subscription)
         return dict(self._orders.copy())
 
-    def get_trades(self, market: str) -> List[Dict]:
+    def get_trades(self, market: str, start_time=None) -> List[Dict]:
         subscription = {'channel': 'trades', 'market': market}
         if subscription not in self._subscriptions:
             self._subscribe(subscription)
@@ -185,3 +186,13 @@ class FtxWebsocketClient(WebsocketManager):
             self._handle_fills_message(message)
         elif channel == 'orders':
             self._handle_orders_message(message)
+
+    def _on_close(self, ws):
+        super()._on_close(ws)
+        if self._on_disconnect:
+            self._on_disconnect()
+
+    def _on_error(self, ws, error):
+        super()._on_error(ws, error)
+        if self._on_disconnect:
+            self._on_disconnect()
